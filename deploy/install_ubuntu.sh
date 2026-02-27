@@ -6,9 +6,12 @@ echo "Updating apt and installing prerequisites..."
 apt-get update
 apt-get install -y build-essential git curl ca-certificates
 
-echo "Installing Go 1.20..."
-if ! command -v go >/dev/null 2>&1; then
-  curl -fsSL https://go.dev/dl/go1.20.15.linux-amd64.tar.gz -o /tmp/go.tgz
+echo "Checking Go installation..."
+if command -v go >/dev/null 2>&1; then
+  echo "go found: $(go version)"
+else
+  echo "Go not found; installing Go 1.20.15"
+  curl -fsSL https://go.dev/dl/go1.20.15.linux-amd64.tar.gz -o /tmp/go.tgz || { echo "failed to download go archive"; exit 1; }
   tar -C /usr/local -xzf /tmp/go.tgz
   export PATH=$PATH:/usr/local/go/bin
 fi
@@ -37,6 +40,8 @@ Description=ViraMail SMTP Ingress Service
 After=network.target
 
 [Service]
+Environment="CERT_PATH=/etc/letsencrypt/live/viragar.ir/fullchain.pem"
+Environment="KEY_PATH=/etc/letsencrypt/live/viragar.ir/privkey.pem"
 ExecStart=/usr/local/bin/viramail-smtp
 Restart=on-failure
 User=www-data
@@ -48,3 +53,22 @@ EOS
 systemctl daemon-reload
 systemctl enable --now viramail-smtp.service
 echo "Installation complete."
+
+echo "Attempting to obtain Let's Encrypt certificate for viragar.ir using certbot (standalone)."
+if ! command -v certbot >/dev/null 2>&1; then
+  apt-get update
+  apt-get install -y snapd
+  snap install core; snap refresh core
+  snap install --classic certbot
+  ln -s /snap/bin/certbot /usr/bin/certbot || true
+fi
+
+if [ -f /etc/letsencrypt/live/viragar.ir/fullchain.pem ]; then
+  echo "Certificate already exists at /etc/letsencrypt/live/viragar.ir/"
+else
+  echo "Stopping service to allow certbot standalone to bind to port 80/443..."
+  systemctl stop viramail-smtp.service || true
+  certbot certonly --standalone --non-interactive --agree-tos -m viramail@viragar.ir -d viragar.ir || true
+  echo "Starting service"
+  systemctl start viramail-smtp.service || true
+fi
