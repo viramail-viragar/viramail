@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  smtp-ingress:
+    build: ../
+    command: go run ./cmd/smtp-ingress-service
+    ports:
+      - "2525:2525"
+    volumes:
+      - ../:/app
