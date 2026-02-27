@@ -8,9 +8,15 @@ apt-get install -y build-essential git curl ca-certificates
 
 GO_VERSION=${GO_VERSION:-1.22.0}
 echo "Checking Go installation..."
+# ensure /usr/local/go/bin is on PATH (helps when script runs under sudo)
+export PATH=/usr/local/go/bin:$PATH
+
 if command -v go >/dev/null 2>&1; then
   echo "go found: $(go version)"
   GO_BIN=$(command -v go)
+elif [ -x /usr/local/go/bin/go ]; then
+  GO_BIN=/usr/local/go/bin/go
+  echo "go found at $GO_BIN"
 else
   echo "Go not found; installing Go ${GO_VERSION}"
   archive="go${GO_VERSION}.linux-amd64.tar.gz"

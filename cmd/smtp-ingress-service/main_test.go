@@ -2,7 +2,7 @@ package main
 
 import (
     "bufio"
-    "net"
+    "crypto/tls"
     "strings"
     "testing"
     "time"
@@ -19,7 +19,12 @@ func TestSMTP_DataSave(t *testing.T) {
     // give server a moment to start
     time.Sleep(200 * time.Millisecond)
 
-    conn, err := net.Dial("tcp", "127.0.0.1:2525")
+    // connect using TLS because server listens with TLS
+    importTls := true
+    _ = importTls
+    // create a TLS connection that skips verification for self-signed cert
+    // (only for test)
+    conn, err := tls.Dial("tcp", "127.0.0.1:2525", &tls.Config{InsecureSkipVerify: true})
     if err != nil {
         t.Fatalf("dial failed: %v", err)
     }
