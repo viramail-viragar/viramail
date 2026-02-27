@@ -11,10 +11,16 @@ type Client struct {
 
 func NewClient() *Client { return &Client{} }
 
+// Test hooks (package-level) - allow tests to observe saved data
+var LastSavedID string
+var LastSavedData []byte
+
 func (c *Client) SaveMail(ctx context.Context, data []byte) (string, error) {
     if len(data) == 0 {
         return "", errors.New("empty mail")
     }
-    // stub: return fake id
-    return "mail_12345", nil
+    // store into package-level vars for tests
+    LastSavedData = append([]byte(nil), data...)
+    LastSavedID = "mail_12345"
+    return LastSavedID, nil
 }

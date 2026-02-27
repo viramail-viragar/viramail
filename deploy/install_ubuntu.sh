@@ -6,14 +6,25 @@ echo "Updating apt and installing prerequisites..."
 apt-get update
 apt-get install -y build-essential git curl ca-certificates
 
+GO_VERSION=${GO_VERSION:-1.22.0}
 echo "Checking Go installation..."
 if command -v go >/dev/null 2>&1; then
   echo "go found: $(go version)"
+  GO_BIN=$(command -v go)
 else
-  echo "Go not found; installing Go 1.20.15"
-  curl -fsSL https://go.dev/dl/go1.20.15.linux-amd64.tar.gz -o /tmp/go.tgz || { echo "failed to download go archive"; exit 1; }
-  tar -C /usr/local -xzf /tmp/go.tgz
+  echo "Go not found; installing Go ${GO_VERSION}"
+  archive="go${GO_VERSION}.linux-amd64.tar.gz"
+  url="https://go.dev/dl/${archive}"
+  echo "Downloading ${url} ..."
+  if ! curl -fSL "$url" -o /tmp/go.tgz; then
+    echo "failed to download ${url}."
+    echo "Please install Go manually (apt, snap, or from https://go.dev/dl/) or set GO_VERSION to a valid release and re-run the installer."
+    exit 1
+  fi
+  sudo rm -rf /usr/local/go
+  sudo tar -C /usr/local -xzf /tmp/go.tgz
   export PATH=$PATH:/usr/local/go/bin
+  GO_BIN=/usr/local/go/bin/go
 fi
 
 echo "Building smtp-ingress-service..."
@@ -31,7 +42,7 @@ fi
 git config user.email "viramail@viragar.ir" || true
 git config user.name "ViraMail Installer" || true
 
-/usr/local/go/bin/go build -o /usr/local/bin/viramail-smtp ./cmd/smtp-ingress-service
+/usr/bin/env ${GO_BIN:-go} build -o /usr/local/bin/viramail-smtp ./cmd/smtp-ingress-service
 
 echo "Create systemd service..."
 cat >/etc/systemd/system/viramail-smtp.service <<'EOS'

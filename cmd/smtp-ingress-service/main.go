@@ -1,6 +1,7 @@
 package main
 
 import (
+    "context"
     "crypto/rand"
     "crypto/rsa"
     "crypto/tls"
@@ -13,6 +14,8 @@ import (
     "net/textproto"
     "os"
     "time"
+
+    "github.com/viramail/viramail/internal/storage"
 )
 
 func main() {
@@ -86,6 +89,31 @@ func handleConn(c net.Conn) {
             tp.PrintfLine("250-Hello")
             tp.PrintfLine("250-STARTTLS")
             tp.PrintfLine("250 OK")
+        case len(line) >= 4 && (line[:4] == "MAIL" || line[:4] == "RCPT"):
+            tp.PrintfLine("250 OK")
+        case len(line) >= 4 && line[:4] == "DATA":
+            tp.PrintfLine("354 End data with <CR><LF>.<CR><LF>")
+            // read data until single dot line
+            var data []byte
+            for {
+                dl, err := tp.ReadLine()
+                if err != nil {
+                    log.Printf("data read error: %v", err)
+                    return
+                }
+                if dl == "." {
+                    break
+                }
+                data = append(data, []byte(dl+"\r\n")...)
+            }
+            // save via storage
+            svc := storage.NewClient()
+            id, err := svc.SaveMail(context.Background(), data)
+            if err != nil {
+                tp.PrintfLine("451 Requested action aborted: local error")
+            } else {
+                tp.PrintfLine("250 OK id=" + id)
+            }
         default:
             tp.PrintfLine("250 OK")
         }
